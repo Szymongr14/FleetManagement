@@ -1,87 +1,92 @@
 using FleetManagementApp;
+using FleetManagementApp.Exceptions;
 
 namespace FleetManagementAppTest;
 
 public class ContainerShipTest
 {
-
-    
     [Fact]
-    public void AddContainer_ShouldIncreaseCurrentLoad()
+    public void AddContainer_ValidContainer_AddsContainer()
     {
-        // Arrange
-        var ship = new ContainerShip("IMO9356646", 
-            "TEST", 
-            17, 122, 
-            new Position(new Tuple<double, double>(58.253531, 9.892320)), 
-            8019);
-        
-        var container = new Container("CMAU1234567", "TEST","TEST", 100);
-
-        // Act
+        var ship = CreateValidContainerShip();
+        var container = CreateValidContainer();
         ship.AddContainer(container);
-
-        // Assert
-        Assert.Equal(100, ship.CurrentLoad);
+        Assert.Contains(container, ship.Containers);
     }
     
     [Fact]
-    public void RemoveContainer_ShouldDecreaseCurrentLoad()
+    public void AddContainer_ValidContainer_IncreasesCurrentLoad()
     {
-        // Arrange
-        var ship = new ContainerShip("IMO9356646", 
-            "TEST", 
-            17, 122, 
-            new Position(new Tuple<double, double>(58.253531, 9.892320)), 
-            8019);
-        
-        var container = new Container("CMAU1234567", "TEST","TEST", 100);
+        var ship = CreateValidContainerShip();
+        var container = CreateValidContainer();
+        var shipLoadBefore = ship.CurrentLoadKg;
         ship.AddContainer(container);
-
-        // Act
-        ship.RemoveContainer(container);
-
-        // Assert
-        Assert.Equal(0, ship.CurrentLoad);
+        Assert.Equal(shipLoadBefore + container.MassKg, ship.CurrentLoadKg);
     }
     
+    [Fact]
+    public void AddContainer_ValidContainerMassOverCapacity_ThrowsContainerShipOverloadException()
+    {
+        var ship = CreateValidContainerShip();
+        var container = new Container("test", "addressee", "desc", ship.MaxLoadKg + 1);
+        Assert.Throws<ShipOverloadingException>(() => ship.AddContainer(container));
+    }
     
     [Fact]
-    public void RemoveContainer_ContainerDoesntExist_ShouldThrowInvalidOperationException()
+    public void RemoveContainer_ValidContainer_RemovesContainer()
     {
-        // Arrange
-        var ship = new ContainerShip("IMO9356646", 
-            "TEST", 
-            17, 122, 
-            new Position(new Tuple<double, double>(58.253531, 9.892320)), 
-            8019);
+        var ship = CreateValidContainerShip();
+        var container = CreateValidContainer();
         
-        var container = new Container("CMAU1234567", "TEST","TEST", 100);
+        var shipLoadBefore = ship.CurrentLoadKg;
         ship.AddContainer(container);
-
-        // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => ship.RemoveContainer(new Container("CMAU1234568", "TEST","TEST", 100)));
+        
+        Assert.Equal(shipLoadBefore + container.MassKg, ship.CurrentLoadKg);
+        
+        ship.RemoveContainer(container.Id);
+        Assert.DoesNotContain(container, ship.Containers);
     }
     
     [Fact]
-    public void GetCurrentLoad_ShouldReturnCorrectLoad()
+    public void GetContainerById_ValidContainerId_ReturnsContainer()
     {
-        // Arrange
-        var ship = new ContainerShip("9356646", 
-            "TEST", 
-            17, 122, 
-            new Position(new Tuple<double, double>(58.253531, 9.892320)), 
-            8019);
-        var container1 = new Container("CMAU1234567", "TEST","TEST", 100);
-        var container2 = new Container("CMAU1234567", "TEST","TEST", 200);
-        ship.AddContainer(container1);
-        ship.AddContainer(container2);
+        var ship = CreateValidContainerShip();
+        var container = CreateValidContainer();
+        ship.AddContainer(container);
+        var returnedContainer = ship.GetContainerById(container.Id);
+        Assert.Equal(container, returnedContainer);
+    }
+    
+    [Fact]
+    public void GetContainerById_InvalidContainerId_ThrowsInvalidContainerIdException()
+    {
+        var ship = CreateValidContainerShip();
+        var container = CreateValidContainer();
+        ship.AddContainer(container);
+        Assert.Throws<InvalidContainerIdException>(() => ship.GetContainerById(Guid.NewGuid()));
+    }
+    
+    [Fact]
+    public void RemoveContainer_ValidContainer_DecreasesCurrentLoad()
+    {
+        var ship = CreateValidContainerShip();
+        var container = CreateValidContainer();
+        ship.AddContainer(container);
+        var shipLoadBefore = ship.CurrentLoadKg;
+        ship.RemoveContainer(container.Id);
+        Assert.Equal(shipLoadBefore - container.MassKg, ship.CurrentLoadKg);
+    }
+    
 
-        // Act
-        var load = ship.CurrentLoad;
-
-        // Assert
-        Assert.Equal(300, load);
+    private static ContainerShip CreateValidContainerShip()
+    {
+        return new ContainerShip("IMO9224764", "test", 1, 1, 100000, new Position(new Coordinates(1, 1), DateTime.Now));
     }
 
+    private static Container CreateValidContainer()
+    {
+        return new Container("test", "addressee", "desc", 192);
+    }
+    
+    
 }

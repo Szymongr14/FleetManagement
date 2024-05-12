@@ -1,45 +1,70 @@
+using FleetManagementApp.Exceptions;
+
 namespace FleetManagementApp;
 
-public class Tank()
+public class Tank
 {
-    public double CurrentCapacity { get; private set; } // in Liters
-    public double MaxCapacity { get; } // in Liters
+    public double CurrentCapacityL { get; private set; }
+    public double MaxCapacityL { get; }
     public FuelType Type { get; }
     public Guid Id { get; }
+    public double CurrentMassKg;
 
-
-    public Tank(double maxCapacity, FuelType type) : this()
+    public Tank(double maxCapacityL, FuelType type)
     {
-        MaxCapacity = maxCapacity;
+        ValidateMaxCapacityL(maxCapacityL);
+        
+        MaxCapacityL = maxCapacityL;
         Type = type;
-        CurrentCapacity = 0;
+        CurrentCapacityL = 0;
+        CurrentMassKg = 0;
         Id = Guid.NewGuid();
     }
     
-    public int Refuel(double amount, FuelType type)
+    public void Refuel(double amountL)
     {
-        if (Type != type) return -1;
-
-        if (CurrentCapacity + amount > MaxCapacity) return -1;
-        
-        CurrentCapacity += amount;
-        return 0;
+        if (CurrentCapacityL + amountL > MaxCapacityL) throw new TankOverfillException("The tank is full.");
+        CurrentCapacityL += amountL;
+        CurrentMassKg += GetMassOfFuelKg(amountL, Type);
     }
 
-    public override string ToString()
+    private static void ValidateMaxCapacityL(double maxCapacityL)
     {
-        return $"Id: {Id}, " +
-               $"Type: {Type}, " +
-               $"MaxCapacity: {MaxCapacity}, " +
-               $"CurrentCapacity: {CurrentCapacity}, " +
-               $"Full of {double.Round(CurrentCapacity / MaxCapacity * 100, 2)}%";
+        if (maxCapacityL <= 0)
+        {
+            throw new InvalidTankCapacityException(
+                "The capacity of the tank must be greater than 0");
+        }
     }
 
-    public int Empty()
+    public void EmptyFully()
     {
-        if (CurrentCapacity == 0) return -1;
+        if(CurrentCapacityL == 0) throw new EmptyingEmptyTankException(
+            "The tank is already empty.");
         
-        CurrentCapacity = 0;
-        return 0;
+        CurrentCapacityL = 0;
+        CurrentMassKg = 0;
+    }
+
+    public void EmptyPartially(double amountL)
+    {
+        if(CurrentCapacityL == 0) throw new EmptyingEmptyTankException(
+            "The tank is already empty.");
+        
+        if (CurrentCapacityL < amountL)
+        {
+            throw new EmptyingTooMuchFuelException(
+                "The tank cannot be emptied, the amount is greater than the current capacity");
+        }
+        
+        var fuelMass = GetMassOfFuelKg(amountL, Type);
+        CurrentCapacityL -= amountL;
+        CurrentMassKg -= fuelMass;
+    }
+    
+
+    public static double GetMassOfFuelKg(double amountL, FuelType type)
+    {
+        return amountL * type.GetDensity();
     }
 }

@@ -1,45 +1,47 @@
+using System.ComponentModel.Design.Serialization;
+using FleetManagementApp.Exceptions;
+
 namespace FleetManagementApp;
 
 public class Fleet
 {
-    public HashSet<Ship> Ships = [];
+    public readonly HashSet<Ship> Ships = [];
     private string ShipOwner { get; set; }
 
     public Fleet(string shipOwner)
     {
+        ValidateShipOwnerName(shipOwner);
         ShipOwner = shipOwner;
     }
     
     public void AddShip(Ship ship)
     {
+        if (Ships.Any(existingShip => existingShip.Id == ship.Id))
+        {
+            throw new InvalidShipIdException(
+                $"A ship with the ID {ship.Id} already exists in the fleet.");
+        }
         Ships.Add(ship);
     }
     
-    public void RemoveShip(Ship ship)
+    public static void ValidateShipOwnerName(string shipOwner)
     {
+        if (string.IsNullOrEmpty(shipOwner))
+        {
+            throw new InvalidShipOwnerNameException(
+                "The provided ship owner name is not valid. Please provide a valid name.");
+        }
+    }
+    
+    public void RemoveShip(string id)
+    {
+        var ship = CheckIfShipExist(id);
         Ships.Remove(ship);
     }
     
-    public void PrintShips()
+    private Ship CheckIfShipExist(string shipId)
     {
-        foreach (var ship in Ships)
-        {
-            Console.WriteLine(ship);
-        }
-    }
-    
-    public override string ToString()
-    {
-        var ships = string.Join("\n", Ships);
-        return $"------{ShipOwner}'s fleet------\n{ships}\n--------------------------";
-    }
-
-    public Ship GetShipByID(string shipId)
-    {
-        if(Ships.Any(ship => ship.Id == shipId))
-        {
-            return Ships.First(ship => ship.Id == shipId);
-        }
-        throw new InvalidOperationException("The ship with the given ID does not exist");
+        return Ships.FirstOrDefault(ship => ship!.Id == shipId, null) ?? 
+               throw new InvalidShipIdException("Ship not found");
     }
 }

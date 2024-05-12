@@ -1,33 +1,53 @@
 using System.Text.RegularExpressions;
+using FleetManagementApp.Exceptions;
 
 namespace FleetManagementApp;
 
 public abstract partial class Ship
 {
-    public string Id { get; private set; }
-    public string Name { get;}
-    public int Width { get;} // in meters
-    public int Length { get;} // in meters
+    public string Id { get;}
+    protected string Name { get;}
+    protected int WidthM { get;}
+    protected int LengthM { get;}
+    public double MaxLoadKg { get; }
+    public double CurrentLoadKg { get; protected set; }
 
-    public LinkedList<Position> Positions = [];
+    private readonly LinkedList<Position> _positions = [];
     
-    
-
-    protected Ship(string id, string name, int width, int length, Position currentPosition)
+    protected Ship(string id, string name, int widthM, int lengthM, double maxLoadKg , Position currentPosition)
     {
-        if(SetId(id) == -1)
-        { 
-            throw new ArgumentException("The provided ID is not valid. Please provide a valid ID.");
-        }
-        Width = width;
-        Name = name;
-        Length = length;
-        Positions.AddLast(currentPosition);
-    }
+        ValidateShipId(id);
+        ValidateWidthAndLength(widthM, lengthM);
+        ValidateName(name);
+        ValidatePosition(currentPosition);
+        ValidateMaxLoadKg(maxLoadKg);
 
-    protected Ship(string id)
-    {
         Id = id;
+        WidthM = widthM;
+        LengthM = lengthM;
+        Name = name;
+        MaxLoadKg = maxLoadKg;
+        CurrentLoadKg = 0;
+        _positions.AddLast(currentPosition);
+    }
+    
+    public static void ValidateWidthAndLength(int width, int length)
+    {
+        if (width <= 0 || length <= 0)
+        {
+            throw new InvalidShipDimensionsException(
+                "The provided dimensions are not valid. Please provide valid dimensions.");
+        }
+    }
+    
+    public static void ValidateName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (name.Length < 2)
+        {
+            throw new InvalidShipNameException(
+                "The provided name is not valid. Please provide a valid name.");
+        }
     }
 
     public override bool Equals(object? obj)
@@ -41,45 +61,55 @@ public abstract partial class Ship
 
     public Position GetCurrentPosition()
     {
-        return Positions.Last!.Value;
+        return _positions.Last!.Value;
     }
 
     public void UpdatePosition(Position newPosition)
     {
-        Positions.AddLast(newPosition);
+        _positions.AddLast(newPosition);
     }
-
 
     public override int GetHashCode()
     {
         return Id.GetHashCode();
     }
-    
 
-    private int SetId(string id)
+    public static void ValidateShipId(string id)
     {
         if (RegexForIdWithImo().IsMatch(id))
         {
-            string digits = id.Remove(0, 3);
-            if (!CheckImoSum(digits)) return -1;
-            Id = id;
-            return 0;
+            var digits = id.Remove(0, 3);
+            if (!CheckImoSum(digits))
+            {
+                throw new InvalidShipIdException("The provided ID is not valid. Please provide a valid ID.");
+            }
         }
-        
-        if (RegexForIdWithoutImo().IsMatch(id))
+        else
         {
-            if (!CheckImoSum(id)) return -1;
-            Id = "IMO" + id;
-            return 0;
+            throw new InvalidShipIdException("The provided ID is not valid. Please provide a valid ID.");
         }
-        
-        return -1;
+    }
+
+    private static void ValidatePosition(Position position)
+    {
+        ArgumentNullException.ThrowIfNull(position);
+        ArgumentNullException.ThrowIfNull(position.Coordinates);
+        ArgumentNullException.ThrowIfNull(position.RecordTime);
+    }
+
+    private static void ValidateMaxLoadKg(double maxLoadKg)
+    {
+        if (maxLoadKg <= 0)
+        {
+            throw new InvalidShipMaxLoadException(
+                "The provided ship max load value are not valid. Please provide valid value.");
+        }
     }
 
     private static bool CheckImoSum(string digits)
     {
-        int sum = 0;
-        int multiplier = 7;
+        var sum = 0;
+        var multiplier = 7;
         for(int i = 0; i < digits.Length - 1; i++)
         {
             sum += multiplier * int.Parse(digits[i].ToString()) ;
@@ -88,9 +118,6 @@ public abstract partial class Ship
         return (sum % 10) == int.Parse(digits[^1].ToString());
     }
 
-    [GeneratedRegex(@"^\d{7}$")]
-    private static partial Regex RegexForIdWithoutImo();
-    
     [GeneratedRegex(@"^IMO\d{7}$")]
     private static partial Regex RegexForIdWithImo();
 }
